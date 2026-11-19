@@ -1,43 +1,38 @@
-// Leonida Trophy Guide: hand the guide in.
+// main.ts — Leonida Trophy Guide entrypoint.
 //
-// Copies app/ and screenshots/ from this repository to the output
-// directory and writes dossier.json there with buildDossier from
-// vendor/makefun-frontend.ts. Outside the grader, MAKEFUN_OUTPUT_DIR
-// stands in for /output.
-import { cpSync, mkdirSync, writeFileSync } from "node:fs";
+// Hands the guide in: copies app/ and screenshots/ from this repository
+// to the output directory and writes /output/dossier.json with buildDossier
+// from vendor/makefun-frontend.ts (the kit's copy, unchanged).
+//
+// Runs on Node 22, standard library only. MAKEFUN_OUTPUT_DIR stands in
+// for /output outside the grader. The program runs twice and both runs
+// must write the same bytes, so the output directory is cleared first
+// and everything written here is deterministic.
+import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildDossier } from "./vendor/makefun-frontend.ts";
 
-// The repository root is the directory this file lives in.
-const repoRoot = dirname(fileURLToPath(import.meta.url));
+// The repository root: this file lives at its root.
+const root = dirname(fileURLToPath(import.meta.url));
+
+// Where the entry goes. Outside the grader, MAKEFUN_OUTPUT_DIR
+// stands in for /output; the grader sets it to /output.
 const outDir = process.env.MAKEFUN_OUTPUT_DIR || "/output";
 
-// The gate's caps for this competition, from its rules.
-const caps = {
-  text_max_bytes: 163840,
-  dossier_max_bytes: 1572864,
-  max_images: 4,
-  app_max_files: 993,
-  app_max_bytes: 50331648,
-  index_html_max_bytes: 1048576,
-};
-
-function copyDir(name) {
-  const from = join(repoRoot, name);
-  const to = join(outDir, name);
-  cpSync(from, to, { recursive: true });
-  return to;
-}
-
+// Start clean so a second run writes exactly the same bytes.
+rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
-copyDir("app");
-copyDir("screenshots");
 
-// Build the dossier from the copied app/ and screenshots/ in the
-// output directory, so it is byte for byte what the gate rebuilds
-// from /output, then write it next to them.
-const dossier = await buildDossier(outDir, caps);
-const dossierPath = join(outDir, "dossier.json");
-writeFileSync(dossierPath, dossier);
-console.log(`wrote ${dossierPath} (${dossier.length} bytes)`);
+// The guide itself: app/ (index.html, styles, scripts, data) and
+// screenshots/ (3 or 4 renders of the guide's own code).
+cpSync(join(root, "app"), join(outDir, "app"), { recursive: true });
+cpSync(join(root, "screenshots"), join(outDir, "screenshots"), { recursive: true });
+
+// The dossier: buildDossier reads app/ and screenshots/ from the
+// repository root and returns the dossier.json bytes. Its text is
+// capped at 163,840 UTF-8 bytes (160 KiB), the limit the rules set.
+const dossier = buildDossier(root, { text_max_bytes: 163840 });
+writeFileSync(join(outDir, "dossier.json"), dossier);
+
+console.log("wrote " + join(outDir, "dossier.json") + " (" + dossier.length + " bytes)");
