@@ -21,8 +21,13 @@ const root = dirname(fileURLToPath(import.meta.url));
 const outDir = process.env.MAKEFUN_OUTPUT_DIR || "/output";
 
 // Start clean so a second run writes exactly the same bytes.
-rmSync(outDir, { recursive: true, force: true });
+// The grader runs as an unprivileged user on a read-only filesystem
+// with /output pre-created: deleting the output directory itself
+// throws EACCES, so only clear its children, never the directory.
 mkdirSync(outDir, { recursive: true });
+rmSync(join(outDir, "app"), { recursive: true, force: true });
+rmSync(join(outDir, "screenshots"), { recursive: true, force: true });
+rmSync(join(outDir, "dossier.json"), { force: true });
 
 // The guide itself: app/ (index.html, styles, scripts, data) and
 // screenshots/ (3 or 4 renders of the guide's own code).
